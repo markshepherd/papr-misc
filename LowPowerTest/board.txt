@@ -1,0 +1,6 @@
+# LowPowerTest build property overrides
+#
+
+build.f_cpu=8000000L
+menu.cpu.atmega328old.bootloader.low_fuses=0xF2
+

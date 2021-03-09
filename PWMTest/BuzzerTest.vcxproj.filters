@@ -15,11 +15,25 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <None Include="BuzzerTest.ino" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="__vm\.BuzzerTest.vsarduino.h">
+    <ClInclude Include="LongPressDetector.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="MySerial.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PAPRHwDefs.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Timer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="MySerial.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="PWMTest.ino" />
   </ItemGroup>
 </Project>

@@ -2,5 +2,13 @@
 #
 
 build.f_cpu=8000000L
-menu.cpu.atmega328old.bootloader.low_fuses=0xF2
 
+# The MCU low fuse word needs to be set to 0x72: 8 MHz internal oscillator, divide clock by 8. At startup this gives 
+# a 1 MHz clock. We start the MCU at this low speed because when the board is first powered up,
+# the MCU only gets 2.5 volts, and cannot run at full speed. Once the firmware starts running,
+# it will enable full power, and then turn off the divide by 8, giving a full 8 MHz clock. 
+# bootloader.low_fuses=0x72
+
+# The following line should go into C:\Program Files (x86)\Arduino\hardware\arduino\avr\programmers.txt
+# Because the MCU only runs at 1 MHz when it starts up, the uploader needs slow down a bit to be able to talk to the MCU.
+avrispmkii.program.extra_params=-Pusb -B 5

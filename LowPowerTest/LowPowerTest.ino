@@ -28,7 +28,7 @@ void flashLED(int pin, int duration, int count = 1)
     }
 }
 
-void setClock(int clock)
+void setClockPrescaler(int clock)
 {
     //myPrintf("setting CLKPR to %d\r\n", value);
     //myPrintf("CLKPR before %d\r\n", CLKPR);
@@ -46,7 +46,7 @@ void handleUpButton(const int state)
     if (true || okToProceed) {
         flashLED(FAN_HIGH_LED_PIN, 5, 2);
         if (currentClock < highestClock) {
-            setClock(++currentClock);
+            setClockPrescaler(++currentClock);
         }
         okToProceed = false;
     }
@@ -57,7 +57,7 @@ void handleDownButton(const int state)
     if (true || okToProceed) {
         flashLED(FAN_LOW_LED_PIN, 5, 2);
         if (currentClock > lowestClock) {
-            setClock(--currentClock);
+            setClockPrescaler(--currentClock);
         }
         okToProceed = false;
     }
@@ -84,8 +84,18 @@ void heartBeatCallback()
 }
 
 void setup() {
-    // Set watchdog to default state, and remember what kind of reset just happened
+    // Make sure watchdog is off. Remember what kind of reset just happened.
     int resetFlags = watchdogStartup();
+
+    // If the power has just come on, then the PCB is in Low Power mode, and the MCU
+    // is running at 1 MHz (because the CKDIV8 fuse bit is programmed). 
+    // Set the PCB to Full Power mode, and wait for things to settle down.
+    //digitalWrite(BOARD_POWER_PIN, HIGH);
+    delay(10);
+
+    // Set the clock prescaler to give the max speed.
+    setClockPrescaler(0);
+    // We should now be running at 8MHz.
 
     // Enable the watchdog timer. Don't make the timeout value too small - we need to give the IDE a chance to
     // call the bootloader in case something dumb happens during development and the WDT
@@ -117,30 +127,33 @@ void setup() {
     heartBeat.start(heartBeatCallback, heartBeatPeriod);
 }
 
-// How to reset from software.
-//
-// void(*resetFunc) (void) = 0; // the reset function at address 0
-// resetFunc();
+// How to do a reset from software.
+void(*resetFunc) (void) = 0; // the reset function at address 0
 
 void loop() {
     wdt_reset();
 
     if (digitalRead(FAN_UP_PIN) == BUTTON_PUSHED) {
-        int i = 0;
-        while (true) {
-            flashLED(FAN_HIGH_LED_PIN, 25);
-            i = i + 1;
-        }
+        //if (digitalRead(FAN_DOWN_PIN) == BUTTON_PUSHED) {
+            resetFunc();
+        //} else {
+            int i = 0;
+            while (true) {
+                flashLED(FAN_HIGH_LED_PIN, 25);
+                i = i + 1;
+            }
+        //}
     }
 
     if (digitalRead(FAN_DOWN_PIN) == BUTTON_PUSHED) {
         digitalWrite(ERROR_LED_PIN, LED_OFF);
         wdt_disable();
+        setClockPrescaler(3); // drop to 1MHz, to save power while sleeping
         while (true) {
             LowPower.powerDown(SLEEP_2S, ADC_OFF, BOD_OFF);
             long wakeupTime = millis();
             while (digitalRead(FAN_UP_PIN) == BUTTON_PUSHED) {
-                if (millis() - wakeupTime > 500) {
+                if (millis() - wakeupTime > 60) {
                     digitalWrite(ERROR_LED_PIN, LED_ON);
                     while (digitalRead(FAN_UP_PIN) == BUTTON_PUSHED) {}
                     digitalWrite(ERROR_LED_PIN, LED_OFF);
@@ -149,7 +162,7 @@ void loop() {
             }
         }
     wakeUp:
-        int i = 0;
+        setClockPrescaler(0);
         wdt_enable(WDTO_8S);
     }
 

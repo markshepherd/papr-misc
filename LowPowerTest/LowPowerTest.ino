@@ -16,7 +16,6 @@ int watchdogStartup(void)
 int currentClock = 0;
 const int lowestClock = 0;
 const int highestClock = 8;
-bool okToProceed = true;
 
 void flashLED(int pin, int duration, int count = 1)
 {
@@ -30,48 +29,67 @@ void flashLED(int pin, int duration, int count = 1)
 
 void setClockPrescaler(int clock)
 {
-    //myPrintf("setting CLKPR to %d\r\n", value);
-    //myPrintf("CLKPR before %d\r\n", CLKPR);
     noInterrupts();
     CLKPR = (1 << CLKPCE);
     CLKPR = clock;
     interrupts();
-    //myPrintf("CLKPR after %d\r\n", CLKPR);
-
+ 
     currentClock = clock;
+}
+
+const int FULL_POWER = 1;
+const int LOW_POWER = 0;
+const int BOARD_POWER_PIN = 8; // unused pin PB0
+
+void setPowerMode(int mode)
+{
+    if (mode == FULL_POWER) {     
+        // Set the PCB to Full Power mode.
+        digitalWrite(BOARD_POWER_PIN, HIGH);
+
+        // Wait for things to settle down
+        delay(10);
+
+        // Set the clock prescaler to give the max speed.
+        setClockPrescaler(0);
+
+        // Enable the watchdog timer. (Note: Don't make the timeout value too small - we need to give the IDE a chance to
+        // call the bootloader in case something dumb happens during development and the WDT
+        // resets the MCU too quickly. Once the code is solid, you could make it shorter.
+        wdt_enable(WDTO_8S);
+
+        // We are now running at full power, full speed.
+    } else {
+        wdt_disable();
+
+        // Full speed doesn't work in low power mode, so drop our speed to 1MHz (8MHz internal oscillator divided by 2**3). 
+        setClockPrescaler(3);
+
+        // Now we can enter low power mode,
+        digitalWrite(BOARD_POWER_PIN, LOW);
+
+        // We are now running at low power, low speed.
+    }
 }
 
 void handleUpButton(const int state)
 {
-    if (true || okToProceed) {
-        flashLED(FAN_HIGH_LED_PIN, 5, 2);
-        if (currentClock < highestClock) {
-            setClockPrescaler(++currentClock);
-        }
-        okToProceed = false;
+    flashLED(FAN_HIGH_LED_PIN, 5, 2);
+    if (currentClock < highestClock) {
+        setClockPrescaler(++currentClock);
     }
 }
 
 void handleDownButton(const int state)
 {
-    if (true || okToProceed) {
-        flashLED(FAN_LOW_LED_PIN, 5, 2);
-        if (currentClock > lowestClock) {
-            setClockPrescaler(--currentClock);
-        }
-        okToProceed = false;
+    flashLED(FAN_LOW_LED_PIN, 5, 2);
+    if (currentClock > lowestClock) {
+        setClockPrescaler(--currentClock);
     }
-}
-
-void handleMonitorButton(const int state)
-{
-    flashLED(BATTERY_LED_LOW_PIN, 5, 2);
-    okToProceed = true;
 }
 
 LongPressDetector upButton(FAN_UP_PIN, 1, handleUpButton);
 LongPressDetector downButton(FAN_DOWN_PIN, 1, handleDownButton);
-LongPressDetector monitorButton(MONITOR_PIN, 1, handleMonitorButton);
 
 int heartBeatPeriod = 500;
 bool toggle = false;
@@ -89,18 +107,8 @@ void setup() {
 
     // If the power has just come on, then the PCB is in Low Power mode, and the MCU
     // is running at 1 MHz (because the CKDIV8 fuse bit is programmed). 
-    // Set the PCB to Full Power mode, and wait for things to settle down.
-    //digitalWrite(BOARD_POWER_PIN, HIGH);
-    delay(10);
-
-    // Set the clock prescaler to give the max speed.
-    setClockPrescaler(0);
-    // We should now be running at 8MHz.
-
-    // Enable the watchdog timer. Don't make the timeout value too small - we need to give the IDE a chance to
-    // call the bootloader in case something dumb happens during development and the WDT
-    // resets the MCU too quickly. Once the code is solid, you could make it shorter.
-    wdt_enable(WDTO_8S);
+    // Bump us up to full soeed.
+    setPowerMode(FULL_POWER);
 
     initSerial();
     myPrintf("Low Power Test, MCUSR = %x\r\n", resetFlags);
@@ -127,8 +135,8 @@ void setup() {
     heartBeat.start(heartBeatCallback, heartBeatPeriod);
 }
 
-// How to do a reset from software.
-void(*resetFunc) (void) = 0; // the reset function at address 0
+// "resetFunc" points to the reset interrupt handler at address 0.
+void(*resetFunc) (void) = 0;
 
 void loop() {
     wdt_reset();
@@ -147,13 +155,12 @@ void loop() {
 
     if (digitalRead(FAN_DOWN_PIN) == BUTTON_PUSHED) {
         digitalWrite(ERROR_LED_PIN, LED_OFF);
-        wdt_disable();
-        setClockPrescaler(3); // drop to 1MHz, to save power while sleeping
+        setPowerMode(LOW_POWER);
         while (true) {
             LowPower.powerDown(SLEEP_2S, ADC_OFF, BOD_OFF);
             long wakeupTime = millis();
             while (digitalRead(FAN_UP_PIN) == BUTTON_PUSHED) {
-                if (millis() - wakeupTime > 60) {
+                if (millis() - wakeupTime > 60) { // we're at 1/8 speed, so this is really 480 ms (8 * 60)
                     digitalWrite(ERROR_LED_PIN, LED_ON);
                     while (digitalRead(FAN_UP_PIN) == BUTTON_PUSHED) {}
                     digitalWrite(ERROR_LED_PIN, LED_OFF);
@@ -162,8 +169,7 @@ void loop() {
             }
         }
     wakeUp:
-        setClockPrescaler(0);
-        wdt_enable(WDTO_8S);
+        setPowerMode(FULL_POWER);
     }
 
     heartBeat.update();

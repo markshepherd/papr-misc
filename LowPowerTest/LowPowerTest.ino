@@ -53,16 +53,9 @@ void setPowerMode(int mode)
         // Set the clock prescaler to give the max speed.
         setClockPrescaler(0);
 
-        // Enable the watchdog timer. (Note: Don't make the timeout value too small - we need to give the IDE a chance to
-        // call the bootloader in case something dumb happens during development and the WDT
-        // resets the MCU too quickly. Once the code is solid, you could make it shorter.
-        wdt_enable(WDTO_8S);
-
         // We are now running at full power, full speed.
     } else {
-        wdt_disable();
-
-        // Full speed doesn't work in low power mode, so drop our speed to 1MHz (8MHz internal oscillator divided by 2**3). 
+        // Full speed doesn't work in low power mode, so drop our speed to 1 MHz (8 MHz internal oscillator divided by 2**3). 
         setClockPrescaler(3);
 
         // Now we can enter low power mode,
@@ -133,6 +126,11 @@ void setup() {
     PCICR  |= 0x04; // set PCIE2 = 1
 
     heartBeat.start(heartBeatCallback, heartBeatPeriod);
+
+    // Enable the watchdog timer. (Note: Don't make the timeout value too small - we need to give the IDE a chance to
+    // call the bootloader in case something dumb happens during development and the WDT
+    // resets the MCU too quickly. Once the code is solid, you could make it shorter.)
+    wdt_enable(WDTO_8S);
 }
 
 // "resetFunc" points to the reset interrupt handler at address 0.
@@ -143,7 +141,7 @@ void loop() {
 
     if (digitalRead(FAN_UP_PIN) == BUTTON_PUSHED) {
         //if (digitalRead(FAN_DOWN_PIN) == BUTTON_PUSHED) {
-            resetFunc();
+            //resetFunc();
         //} else {
             int i = 0;
             while (true) {
@@ -157,7 +155,9 @@ void loop() {
         digitalWrite(ERROR_LED_PIN, LED_OFF);
         setPowerMode(LOW_POWER);
         while (true) {
-            LowPower.powerDown(SLEEP_2S, ADC_OFF, BOD_OFF);
+            wdt_disable();
+            LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF);
+            wdt_enable(WDTO_8S);
             long wakeupTime = millis();
             while (digitalRead(FAN_UP_PIN) == BUTTON_PUSHED) {
                 if (millis() - wakeupTime > 60) { // we're at 1/8 speed, so this is really 480 ms (8 * 60)

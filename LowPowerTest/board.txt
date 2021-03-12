@@ -11,4 +11,4 @@ build.f_cpu=8000000L
 
 # The following line should go into C:\Program Files (x86)\Arduino\hardware\arduino\avr\programmers.txt
 # Because the MCU only runs at 1 MHz when it starts up, the uploader needs slow down a bit to be able to talk to the MCU.
-avrispmkii.program.extra_params=-Pusb -B 5
+# avrispmkii.program.extra_params=-Pusb -B 5

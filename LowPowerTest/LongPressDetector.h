@@ -15,7 +15,7 @@ private:
     bool _callbackCalled;
 
 public:
-    LongPressDetector(int pin, unsigned long longPressMillis, void(*callback)(const int))
+    LongPressDetector(const int pin, unsigned long longPressMillis, void(*callback)(const int))
         : _pin(pin), _longPressMillis(longPressMillis), _callback(callback),
         _currentState(BUTTON_RELEASED), _pressMillis(0), _callbackCalled(true) {}
 

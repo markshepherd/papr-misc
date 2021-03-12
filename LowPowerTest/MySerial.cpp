@@ -1,5 +1,7 @@
 #include "MySerial.h"
 #include "PAPRHwDefs.h"
+
+#ifdef USE_SERIAL
 #include <SoftwareSerial.h>
 
 #define MOSI_PIN 11  /* PB3 */ 
@@ -21,3 +23,4 @@ void myPrintf(const char* __fmt, ...) {
 void initSerial() {
 	mySerial.begin(57600);
 }
+#endif

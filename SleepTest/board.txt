@@ -1,0 +1,4 @@
+# SleepTest build property overrides
+#
+
+build.f_cpu=8000000L

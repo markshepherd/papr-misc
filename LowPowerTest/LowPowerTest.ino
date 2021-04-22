@@ -23,7 +23,7 @@ const int BOARD_POWER_PIN = 8; // unused pin PB0
 const int POWER_ON_PIN = FAN_UP_PIN;
 const int POWER_OFF_PIN = FAN_DOWN_PIN;
 
-enum PowerState {powerOff, powerOn, powerCharging};
+enum PowerState {powerOff, powerOn, powerOffCharging, powerOnCharging};
 PowerState powerState;
 
 // -------------------------------------------------------------
@@ -74,6 +74,11 @@ void flashLED(int pin, int duration, int count = 1)
 // -------------------------------------------------------------
 // Main
 
+bool stateOfChargeUpdate()
+{
+    return false;
+}
+
 void setPowerMode(int mode)
 {
     if (mode == FULL_POWER) {     
@@ -108,7 +113,10 @@ void enterState(PowerState newState)
         case powerOff:
             break;
 
-        case powerCharging:
+        case powerOnCharging:
+            break;
+
+        case powerOffCharging:
             break;
     }
 }
@@ -180,7 +188,7 @@ void nap() {
     setPowerMode(LOW_POWER);
     wdt_disable();
     while (true) {
-        LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF);
+        LowPower.powerDown(SLEEP_2S, ADC_OFF, BOD_OFF);
         long wakeupTime = millis();
         while (digitalRead(POWER_ON_PIN) == BUTTON_PUSHED) {
             digitalWrite(ERROR_LED_PIN, LED_ON);
@@ -215,12 +223,17 @@ LongPressDetector powerOnButton(POWER_ON_PIN, 1000, handlePowerOnButton);
 
 void loop() {
     wdt_reset();
+    bool isCharging;
 
     switch (powerState) {
         case powerOn:
             heartBeat.update();
             powerOffButton.update();
             powerOnButton.update();
+            isCharging = stateOfChargeUpdate();
+            if (isCharging) {
+                enterState(powerOnCharging);
+            }
             //upButton.update();
             //downButton.update();
             //monitorButton.update();
@@ -234,9 +247,20 @@ void loop() {
 
             // Nothing to do, take a nap.
             nap();
+            isCharging = stateOfChargeUpdate();
+            if (isCharging) {
+                enterState(powerOnCharging);
+            }
             break;
 
-        case powerCharging:
+        case powerOnCharging:
+            stateOfChargeUpdate();
+            //if (!chargerActive)
+            //    enterState(stateOff);
+            break;
+
+        case powerOffCharging:
+            stateOfChargeUpdate();
             //if (!chargerActive)
             //    enterState(stateOff);
             break;
